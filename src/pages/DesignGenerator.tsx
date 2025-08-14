@@ -40,7 +40,9 @@ const DesignGenerator: React.FC = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedDesign, setGeneratedDesign] = useState<GeneratedDesign | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [apiKey, setApiKey] = useState<string>('');
+  
+  // Get API key from environment variable
+  const API_KEY = process.env.REACT_APP_OPENAI_API_KEY || '';
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -66,8 +68,8 @@ const DesignGenerator: React.FC = () => {
       return;
     }
 
-    if (!apiKey) {
-      setError('Please enter your OpenAI API key');
+    if (!API_KEY) {
+      setError('API key not available. Please contact administrator.');
       return;
     }
 
@@ -76,7 +78,7 @@ const DesignGenerator: React.FC = () => {
 
     try {
       const designPrompt = createDesignPrompt();
-      const aiResponse = await callChatGPTAPI(designPrompt, apiKey);
+      const aiResponse = await callChatGPTAPI(designPrompt, API_KEY);
       
       const newDesign: GeneratedDesign = {
         id: Date.now().toString(),
@@ -481,7 +483,6 @@ Focus on creating a design that conveys trust, security, and professionalism whi
     });
     setGeneratedDesign(null);
     setError(null);
-    setApiKey('');
   };
 
   return (
@@ -498,28 +499,6 @@ Focus on creating a design that conveys trust, security, and professionalism whi
           <h2 className="bcu-text-primary" style={{ marginBottom: 'var(--bcu-spacing-6)' }}>
             Design Requirements
           </h2>
-
-          <div className="bcu-form-group">
-            <label className="bcu-label" htmlFor="apiKey">
-              OpenAI API Key * <span style={{ color: 'var(--bcu-error)' }}>(Required for AI generation)</span>
-            </label>
-            <input
-              type="password"
-              id="apiKey"
-              className="bcu-input"
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              placeholder="sk-..."
-              required
-            />
-            <p className="bcu-text-gray" style={{ fontSize: 'var(--bcu-font-size-sm)', marginTop: 'var(--bcu-spacing-2)' }}>
-              Your API key is stored locally and never sent to our servers. Get your key from{' '}
-              <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" 
-                 style={{ color: 'var(--bcu-primary)' }}>
-                OpenAI Platform
-              </a>
-            </p>
-          </div>
 
           <div className="bcu-form-row">
             <div className="bcu-form-group">
@@ -647,7 +626,7 @@ Focus on creating a design that conveys trust, security, and professionalism whi
             <button 
               className="bcu-button bcu-button-primary" 
               onClick={generateDesign}
-              disabled={isGenerating || !apiKey}
+              disabled={isGenerating}
             >
               <Zap size={20} />
               {isGenerating ? 'Generating...' : 'Generate Design'}
@@ -727,8 +706,8 @@ Focus on creating a design that conveys trust, security, and professionalism whi
               <FileText size={64} style={{ color: 'var(--bcu-gray-400)', marginBottom: 'var(--bcu-spacing-4)' }} />
               <h3>Ready to Generate Your Design</h3>
               <p className="bcu-text-gray">
-                Enter your OpenAI API key above, fill out the form, and click "Generate Design" to create your high-fidelity banking interface.
-                Our AI will analyze your requirements and produce a professional design with HTML code.
+                Fill out the form above and click "Generate Design" to create your high-fidelity banking interface.
+                Our AI is ready and will analyze your requirements to produce a professional design with HTML code.
               </p>
             </div>
           </div>
