@@ -177,6 +177,7 @@ Focus on creating a design that conveys trust, security, and professionalism whi
 
   const generateDALLEMockup = async (title: string, description: string, apiKey: string): Promise<string> => {
     console.log('Starting DALL-E image generation...');
+    console.log('Using updated DALL-E API format (no invalid parameters)');
     
     let dallePrompt = `Create a high-fidelity, realistic UI mockup for a mobile banking application called "${title}". 
 
