@@ -178,7 +178,7 @@ Focus on creating a design that conveys trust, security, and professionalism whi
   const generateDALLEMockup = async (title: string, description: string, apiKey: string): Promise<string> => {
     console.log('Starting DALL-E image generation...');
     
-    const dallePrompt = `Create a high-fidelity, realistic UI mockup for a mobile banking application called "${title}". 
+    let dallePrompt = `Create a high-fidelity, realistic UI mockup for a mobile banking application called "${title}". 
 
 Requirements: ${description}
 
@@ -193,8 +193,15 @@ Make it look like a real, functional mobile banking application screenshot with:
 - Banking-specific elements (account info, balances, transactions)
 
 The image should look like a professional mobile banking app screenshot that could be used in a real application.`;
+
+    // DALL-E has a 1000 character limit for prompts
+    if (dallePrompt.length > 1000) {
+      dallePrompt = dallePrompt.substring(0, 997) + '...';
+      console.log('DALL-E prompt was too long, trimmed to:', dallePrompt.length, 'characters');
+    }
     
     console.log('DALL-E Prompt:', dallePrompt);
+    console.log('DALL-E Prompt Length:', dallePrompt.length, 'characters');
     
     try {
       const response = await fetch('https://api.openai.com/v1/images/generations', {
@@ -206,9 +213,7 @@ The image should look like a professional mobile banking app screenshot that cou
         body: JSON.stringify({
           prompt: dallePrompt,
           n: 1,
-          size: '1024x1024',
-          quality: 'hd',
-          style: 'natural'
+          size: '1024x1024'
         })
       });
 
@@ -217,7 +222,9 @@ The image should look like a professional mobile banking app screenshot that cou
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         console.error('DALL-E API Error:', errorData);
-        throw new Error(`DALL-E Error: ${errorData.error?.message || response.statusText}`);
+        console.error('DALL-E Response Status:', response.status);
+        console.error('DALL-E Response Headers:', response.headers);
+        throw new Error(`DALL-E Error (${response.status}): ${errorData.error?.message || response.statusText}`);
       }
 
       const data = await response.json();
