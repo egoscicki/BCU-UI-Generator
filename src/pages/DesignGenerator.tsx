@@ -85,9 +85,13 @@ const DesignGenerator: React.FC = () => {
       // Try to generate a DALL-E mockup
       let mockupUrl = '';
       try {
+        console.log('Starting DALL-E generation...');
         mockupUrl = await generateDALLEMockup(formData.title, formData.description, apiKey);
-      } catch (dalleError) {
-        console.log('DALL-E generation failed, continuing with text-only design');
+        console.log('DALL-E generation successful:', mockupUrl);
+      } catch (dalleError: any) {
+        console.error('DALL-E generation failed:', dalleError);
+        // Don't fail the entire process, just continue without the image
+        setError(`Design generated successfully, but image creation failed: ${dalleError.message}. You can still download the HTML design.`);
       }
       
       const newDesign: GeneratedDesign = {
@@ -172,37 +176,64 @@ Focus on creating a design that conveys trust, security, and professionalism whi
   };
 
   const generateDALLEMockup = async (title: string, description: string, apiKey: string): Promise<string> => {
-    const dallePrompt = `Create a high-fidelity UI mockup for a banking application: ${title}. 
+    console.log('Starting DALL-E image generation...');
     
-    Requirements: ${description}
-    
-    Style: Modern, professional banking interface with clean design, proper spacing, realistic UI elements like buttons, forms, cards, and navigation. 
-    Use a light color scheme with blue accents, professional typography, and realistic banking app components.
-    
-    Make it look like a real, functional banking application screenshot.`;
-    
-    const response = await fetch('https://api.openai.com/v1/images/generations', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        prompt: dallePrompt,
-        n: 1,
-        size: '1024x1024',
-        quality: 'hd',
-        style: 'natural'
-      })
-    });
+    const dallePrompt = `Create a high-fidelity, realistic UI mockup for a mobile banking application called "${title}". 
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(`DALL-E Error: ${errorData.error?.message || response.statusText}`);
+Requirements: ${description}
+
+Style: Modern, professional banking interface with clean design, proper spacing, realistic UI elements like buttons, forms, cards, and navigation. Use a light color scheme with blue accents (#1E3A8A), professional typography, and realistic banking app components.
+
+Make it look like a real, functional mobile banking application screenshot with:
+- Clean, modern interface design
+- Professional banking color scheme
+- Realistic UI components (buttons, forms, cards)
+- Proper spacing and typography
+- Mobile app layout and proportions
+- Banking-specific elements (account info, balances, transactions)
+
+The image should look like a professional mobile banking app screenshot that could be used in a real application.`;
+    
+    console.log('DALL-E Prompt:', dallePrompt);
+    
+    try {
+      const response = await fetch('https://api.openai.com/v1/images/generations', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          prompt: dallePrompt,
+          n: 1,
+          size: '1024x1024',
+          quality: 'hd',
+          style: 'natural'
+        })
+      });
+
+      console.log('DALL-E Response Status:', response.status);
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('DALL-E API Error:', errorData);
+        throw new Error(`DALL-E Error: ${errorData.error?.message || response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log('DALL-E Response Data:', data);
+      
+      const imageUrl = data.data[0]?.url;
+      if (!imageUrl) {
+        throw new Error('No image URL returned from DALL-E');
+      }
+      
+      console.log('DALL-E Image URL:', imageUrl);
+      return imageUrl;
+    } catch (error) {
+      console.error('DALL-E Generation Error:', error);
+      throw error;
     }
-
-    const data = await response.json();
-    return data.data[0]?.url || '';
   };
 
   const generateDesignCode = (aiResponse: string, formData: DesignForm): string => {
@@ -708,8 +739,19 @@ Focus on creating a design that conveys trust, security, and professionalism whi
               <span>AI is generating your design...</span>
             </div>
             <p className="bcu-text-gray" style={{ textAlign: 'center', marginTop: 'var(--bcu-spacing-4)' }}>
-              This may take a few moments. Our AI is analyzing your requirements and creating a high-fidelity design.
+              This may take a few moments. ChatGPT is analyzing your requirements and DALL-E is creating a visual mockup.
             </p>
+            <div style={{ 
+              backgroundColor: 'var(--bcu-primary)', 
+              color: 'white', 
+              padding: 'var(--bcu-spacing-3)', 
+              borderRadius: 'var(--bcu-radius-md)',
+              marginTop: 'var(--bcu-spacing-4)',
+              fontSize: 'var(--bcu-font-size-sm)',
+              textAlign: 'center'
+            }}>
+              🔄 <strong>Processing:</strong> ChatGPT → Design Specs → DALL-E → Visual Mockup
+            </div>
           </div>
         )}
 
