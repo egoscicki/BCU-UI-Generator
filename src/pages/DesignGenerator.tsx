@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Zap, Download, Share2, RotateCcw, Upload, FileText } from 'lucide-react';
+import { Zap, Download, Share2, RotateCcw, Upload, FileText, AlertCircle } from 'lucide-react';
 
 interface DesignForm {
   title: string;
@@ -17,6 +17,15 @@ interface GeneratedDesign {
   designCode: string;
   previewUrl?: string;
   timestamp: Date;
+  aiResponse?: string;
+}
+
+interface ChatGPTResponse {
+  choices: Array<{
+    message: {
+      content: string;
+    };
+  }>;
 }
 
 const DesignGenerator: React.FC = () => {
@@ -31,6 +40,7 @@ const DesignGenerator: React.FC = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedDesign, setGeneratedDesign] = useState<GeneratedDesign | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [apiKey, setApiKey] = useState<string>('');
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -56,59 +66,381 @@ const DesignGenerator: React.FC = () => {
       return;
     }
 
+    if (!apiKey) {
+      setError('Please enter your OpenAI API key');
+      return;
+    }
+
     setIsGenerating(true);
     setError(null);
 
     try {
-      // This would be replaced with actual ChatGPT API call
-      // For now, we'll simulate the API response
-      await simulateChatGPTCall();
+      const designPrompt = createDesignPrompt();
+      const aiResponse = await callChatGPTAPI(designPrompt, apiKey);
       
       const newDesign: GeneratedDesign = {
         id: Date.now().toString(),
         title: formData.title,
         description: formData.description,
-        designCode: generateMockDesignCode(),
-        timestamp: new Date()
+        designCode: generateDesignCode(aiResponse, formData),
+        timestamp: new Date(),
+        aiResponse: aiResponse
       };
 
       setGeneratedDesign(newDesign);
-    } catch (err) {
-      setError('Failed to generate design. Please try again.');
+    } catch (err: any) {
+      console.error('API Error:', err);
+      setError(err.message || 'Failed to generate design. Please check your API key and try again.');
     } finally {
       setIsGenerating(false);
     }
   };
 
-  const simulateChatGPTCall = (): Promise<void> => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve();
-      }, 3000); // Simulate 3 second API call
-    });
+  const createDesignPrompt = (): string => {
+    return `You are a professional UI/UX designer specializing in banking and financial applications. 
+
+Based on the following requirements, generate a detailed design specification for a high-fidelity banking interface:
+
+**Design Title:** ${formData.title}
+**Design Type:** ${formData.designType}
+**Target Audience:** ${formData.targetAudience}
+**Main Content:** ${formData.bodyCopy}
+**Detailed Description:** ${formData.description}
+
+Please provide:
+1. A detailed layout structure with specific component recommendations
+2. Color scheme suggestions that align with professional banking aesthetics
+3. Typography hierarchy and sizing recommendations
+4. Specific UI components and their placement
+5. User interaction patterns and flow
+6. Accessibility considerations
+7. Mobile responsiveness guidelines
+
+Focus on creating a design that conveys trust, security, and professionalism while maintaining excellent usability. The design should follow modern banking UI/UX best practices.`;
   };
 
-  const generateMockDesignCode = (): string => {
+  const callChatGPTAPI = async (prompt: string, apiKey: string): Promise<string> => {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: 'gpt-4',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are an expert UI/UX designer specializing in banking applications. Provide detailed, actionable design specifications.'
+          },
+          {
+            role: 'user',
+            content: prompt
+          }
+        ],
+        max_tokens: 2000,
+        temperature: 0.7
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      if (response.status === 401) {
+        throw new Error('Invalid API key. Please check your OpenAI API key.');
+      } else if (response.status === 429) {
+        throw new Error('Rate limit exceeded. Please try again in a moment.');
+      } else {
+        throw new Error(`API Error: ${errorData.error?.message || response.statusText}`);
+      }
+    }
+
+    const data: ChatGPTResponse = await response.json();
+    return data.choices[0]?.message?.content || 'No response from AI';
+  };
+
+  const generateDesignCode = (aiResponse: string, formData: DesignForm): string => {
+    // Extract key design elements from AI response
+    const hasCards = aiResponse.toLowerCase().includes('card') || aiResponse.toLowerCase().includes('grid');
+    const hasNavigation = aiResponse.toLowerCase().includes('navigation') || aiResponse.toLowerCase().includes('menu');
+    const hasForms = aiResponse.toLowerCase().includes('form') || aiResponse.toLowerCase().includes('input');
+    
     return `
-      <div class="bcu-banking-interface">
-        <header class="bcu-header">
-          <h1>${formData.title}</h1>
-          <p>${formData.bodyCopy}</p>
-        </header>
-        
-        <main class="bcu-main-content">
-          <div class="bcu-card-grid">
-            <div class="bcu-card">
-              <h3>Account Overview</h3>
-              <p>Manage your finances with ease</p>
-            </div>
-            <div class="bcu-card">
-              <h3>Quick Actions</h3>
-              <p>Transfer, pay bills, and more</p>
-            </div>
+      <!-- Generated by BCU Design Studio with AI -->
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>${formData.title}</title>
+          <style>
+              :root {
+                  --bcu-primary: #1E3A8A;
+                  --bcu-primary-light: #3B82F6;
+                  --bcu-secondary: #10B981;
+                  --bcu-white: #FFFFFF;
+                  --bcu-gray-50: #F9FAFB;
+                  --bcu-gray-200: #E5E7EB;
+                  --bcu-gray-600: #4B5563;
+                  --bcu-gray-900: #111827;
+              }
+              
+              * {
+                  box-sizing: border-box;
+                  margin: 0;
+                  padding: 0;
+              }
+              
+              body {
+                  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                  background: linear-gradient(135deg, var(--bcu-gray-50) 0%, var(--bcu-white) 100%);
+                  color: var(--bcu-gray-900);
+                  line-height: 1.6;
+              }
+              
+              .bcu-container {
+                  max-width: 1200px;
+                  margin: 0 auto;
+                  padding: 20px;
+              }
+              
+              .bcu-header {
+                  background: var(--bcu-primary);
+                  color: var(--bcu-white);
+                  padding: 2rem;
+                  border-radius: 12px;
+                  margin-bottom: 2rem;
+                  text-align: center;
+              }
+              
+              .bcu-header h1 {
+                  font-size: 2.5rem;
+                  margin-bottom: 1rem;
+              }
+              
+              .bcu-header p {
+                  font-size: 1.2rem;
+                  opacity: 0.9;
+              }
+              
+              .bcu-main-content {
+                  display: grid;
+                  gap: 2rem;
+                  margin-bottom: 2rem;
+              }
+              
+              ${hasCards ? `
+              .bcu-card-grid {
+                  display: grid;
+                  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+                  gap: 1.5rem;
+              }
+              
+              .bcu-card {
+                  background: var(--bcu-white);
+                  padding: 2rem;
+                  border-radius: 12px;
+                  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+                  border: 1px solid var(--bcu-gray-200);
+              }
+              
+              .bcu-card h3 {
+                  color: var(--bcu-primary);
+                  margin-bottom: 1rem;
+                  font-size: 1.5rem;
+              }
+              ` : ''}
+              
+              ${hasNavigation ? `
+              .bcu-navigation {
+                  background: var(--bcu-white);
+                  padding: 1rem;
+                  border-radius: 8px;
+                  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+                  margin-bottom: 2rem;
+              }
+              
+              .bcu-nav-list {
+                  display: flex;
+                  list-style: none;
+                  gap: 2rem;
+                  justify-content: center;
+              }
+              
+              .bcu-nav-item a {
+                  color: var(--bcu-primary);
+                  text-decoration: none;
+                  font-weight: 500;
+                  padding: 0.5rem 1rem;
+                  border-radius: 6px;
+                  transition: background-color 0.2s;
+              }
+              
+              .bcu-nav-item a:hover {
+                  background: var(--bcu-gray-50);
+              }
+              ` : ''}
+              
+              ${hasForms ? `
+              .bcu-form {
+                  background: var(--bcu-white);
+                  padding: 2rem;
+                  border-radius: 12px;
+                  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+              }
+              
+              .bcu-form-group {
+                  margin-bottom: 1.5rem;
+              }
+              
+              .bcu-label {
+                  display: block;
+                  margin-bottom: 0.5rem;
+                  font-weight: 600;
+                  color: var(--bcu-gray-700);
+              }
+              
+              .bcu-input {
+                  width: 100%;
+                  padding: 0.75rem;
+                  border: 2px solid var(--bcu-gray-200);
+                  border-radius: 8px;
+                  font-size: 1rem;
+                  transition: border-color 0.2s;
+              }
+              
+              .bcu-input:focus {
+                  outline: none;
+                  border-color: var(--bcu-primary);
+              }
+              
+              .bcu-button {
+                  background: var(--bcu-primary);
+                  color: var(--bcu-white);
+                  padding: 0.75rem 1.5rem;
+                  border: none;
+                  border-radius: 8px;
+                  font-size: 1rem;
+                  font-weight: 600;
+                  cursor: pointer;
+                  transition: background-color 0.2s;
+              }
+              
+              .bcu-button:hover {
+                  background: var(--bcu-primary-light);
+              }
+              ` : ''}
+              
+              .bcu-ai-insights {
+                  background: var(--bcu-gray-50);
+                  padding: 2rem;
+                  border-radius: 12px;
+                  border-left: 4px solid var(--bcu-secondary);
+                  margin-top: 2rem;
+              }
+              
+              .bcu-ai-insights h3 {
+                  color: var(--bcu-secondary);
+                  margin-bottom: 1rem;
+              }
+              
+              .bcu-ai-insights pre {
+                  background: var(--bcu-white);
+                  padding: 1rem;
+                  border-radius: 8px;
+                  overflow-x: auto;
+                  white-space: pre-wrap;
+                  font-size: 0.9rem;
+                  line-height: 1.5;
+              }
+              
+              @media (max-width: 768px) {
+                  .bcu-container {
+                      padding: 15px;
+                  }
+                  
+                  .bcu-header h1 {
+                      font-size: 2rem;
+                  }
+                  
+                  .bcu-card-grid {
+                      grid-template-columns: 1fr;
+                  }
+                  
+                  .bcu-nav-list {
+                      flex-direction: column;
+                      gap: 1rem;
+                  }
+              }
+          </style>
+      </head>
+      <body>
+          <div class="bcu-container">
+              <header class="bcu-header">
+                  <h1>${formData.title}</h1>
+                  <p>${formData.bodyCopy || 'Professional banking interface designed with AI assistance'}</p>
+              </header>
+              
+              <main class="bcu-main-content">
+                  ${hasNavigation ? `
+                  <nav class="bcu-navigation">
+                      <ul class="bcu-nav-list">
+                          <li class="bcu-nav-item"><a href="#overview">Overview</a></li>
+                          <li class="bcu-nav-item"><a href="#accounts">Accounts</a></li>
+                          <li class="bcu-nav-item"><a href="#transactions">Transactions</a></li>
+                          <li class="bcu-nav-item"><a href="#settings">Settings</a></li>
+                      </ul>
+                  </nav>
+                  ` : ''}
+                  
+                  ${hasCards ? `
+                  <div class="bcu-card-grid">
+                      <div class="bcu-card">
+                          <h3>Account Overview</h3>
+                          <p>Manage your finances with ease and security</p>
+                      </div>
+                      <div class="bcu-card">
+                          <h3>Quick Actions</h3>
+                          <p>Transfer funds, pay bills, and more</p>
+                      </div>
+                      <div class="bcu-card">
+                          <h3>Financial Insights</h3>
+                          <p>Track your spending and savings goals</p>
+                      </div>
+                  </div>
+                  ` : ''}
+                  
+                  ${hasForms ? `
+                  <div class="bcu-form">
+                      <h3>Quick Transfer</h3>
+                      <form>
+                          <div class="bcu-form-group">
+                              <label class="bcu-label">From Account</label>
+                              <select class="bcu-input">
+                                  <option>Checking Account</option>
+                                  <option>Savings Account</option>
+                              </select>
+                          </div>
+                          <div class="bcu-form-group">
+                              <label class="bcu-label">To Account</label>
+                              <input type="text" class="bcu-input" placeholder="Enter account number">
+                          </div>
+                          <div class="bcu-form-group">
+                              <label class="bcu-label">Amount</label>
+                              <input type="number" class="bcu-input" placeholder="0.00">
+                          </div>
+                          <button type="submit" class="bcu-button">Transfer Funds</button>
+                      </form>
+                  </div>
+                  ` : ''}
+              </main>
+              
+              <div class="bcu-ai-insights">
+                  <h3>AI Design Recommendations</h3>
+                  <pre>${aiResponse}</pre>
+              </div>
           </div>
-        </main>
-      </div>
+      </body>
+      </html>
     `;
   };
 
@@ -134,7 +466,6 @@ const DesignGenerator: React.FC = () => {
         url: window.location.href
       });
     } else {
-      // Fallback: copy to clipboard
       navigator.clipboard.writeText(window.location.href);
       alert('Link copied to clipboard!');
     }
@@ -150,6 +481,7 @@ const DesignGenerator: React.FC = () => {
     });
     setGeneratedDesign(null);
     setError(null);
+    setApiKey('');
   };
 
   return (
@@ -166,6 +498,28 @@ const DesignGenerator: React.FC = () => {
           <h2 className="bcu-text-primary" style={{ marginBottom: 'var(--bcu-spacing-6)' }}>
             Design Requirements
           </h2>
+
+          <div className="bcu-form-group">
+            <label className="bcu-label" htmlFor="apiKey">
+              OpenAI API Key * <span style={{ color: 'var(--bcu-error)' }}>(Required for AI generation)</span>
+            </label>
+            <input
+              type="password"
+              id="apiKey"
+              className="bcu-input"
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+              placeholder="sk-..."
+              required
+            />
+            <p className="bcu-text-gray" style={{ fontSize: 'var(--bcu-font-size-sm)', marginTop: 'var(--bcu-spacing-2)' }}>
+              Your API key is stored locally and never sent to our servers. Get your key from{' '}
+              <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" 
+                 style={{ color: 'var(--bcu-primary)' }}>
+                OpenAI Platform
+              </a>
+            </p>
+          </div>
 
           <div className="bcu-form-row">
             <div className="bcu-form-group">
@@ -275,8 +629,12 @@ const DesignGenerator: React.FC = () => {
               backgroundColor: 'rgba(220, 38, 38, 0.1)', 
               padding: 'var(--bcu-spacing-3)', 
               borderRadius: 'var(--bcu-radius-md)',
-              marginBottom: 'var(--bcu-spacing-4)'
+              marginBottom: 'var(--bcu-spacing-4)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 'var(--bcu-spacing-2)'
             }}>
+              <AlertCircle size={20} />
               {error}
             </div>
           )}
@@ -289,7 +647,7 @@ const DesignGenerator: React.FC = () => {
             <button 
               className="bcu-button bcu-button-primary" 
               onClick={generateDesign}
-              disabled={isGenerating}
+              disabled={isGenerating || !apiKey}
             >
               <Zap size={20} />
               {isGenerating ? 'Generating...' : 'Generate Design'}
@@ -334,9 +692,14 @@ const DesignGenerator: React.FC = () => {
                   fontFamily: 'monospace',
                   fontSize: 'var(--bcu-font-size-sm)',
                   whiteSpace: 'pre-wrap',
-                  overflow: 'auto'
+                  overflow: 'auto',
+                  maxHeight: '300px'
                 }}>
-                  {generatedDesign.designCode}
+                  {generatedDesign.designCode.substring(0, 500)}...
+                  <br />
+                  <em style={{ color: 'var(--bcu-gray-500)' }}>
+                    (HTML code truncated for preview. Download to see full code.)
+                  </em>
                 </div>
               </div>
 
@@ -364,8 +727,8 @@ const DesignGenerator: React.FC = () => {
               <FileText size={64} style={{ color: 'var(--bcu-gray-400)', marginBottom: 'var(--bcu-spacing-4)' }} />
               <h3>Ready to Generate Your Design</h3>
               <p className="bcu-text-gray">
-                Fill out the form above and click "Generate Design" to create your high-fidelity banking interface.
-                Our AI will analyze your requirements and wireframe to produce a professional design.
+                Enter your OpenAI API key above, fill out the form, and click "Generate Design" to create your high-fidelity banking interface.
+                Our AI will analyze your requirements and produce a professional design with HTML code.
               </p>
             </div>
           </div>
