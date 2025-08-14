@@ -1,15 +1,15 @@
 {
   "files": {
     "main.css": "/BCU-UI-Generator/static/css/main.3c689204.css",
-    "main.js": "/BCU-UI-Generator/static/js/main.405b564f.js",
+    "main.js": "/BCU-UI-Generator/static/js/main.397696db.js",
     "static/js/453.9f198e54.chunk.js": "/BCU-UI-Generator/static/js/453.9f198e54.chunk.js",
     "index.html": "/BCU-UI-Generator/index.html",
     "main.3c689204.css.map": "/BCU-UI-Generator/static/css/main.3c689204.css.map",
-    "main.405b564f.js.map": "/BCU-UI-Generator/static/js/main.405b564f.js.map",
+    "main.397696db.js.map": "/BCU-UI-Generator/static/js/main.397696db.js.map",
     "453.9f198e54.chunk.js.map": "/BCU-UI-Generator/static/js/453.9f198e54.chunk.js.map"
   },
   "entrypoints": [
     "static/css/main.3c689204.css",
-    "static/js/main.405b564f.js"
+    "static/js/main.397696db.js"
   ]
 }
