@@ -15,9 +15,13 @@ interface GeneratedDesign {
   title: string;
   description: string;
   designCode: string;
-  previewUrl?: string;
   timestamp: Date;
   aiResponse?: string;
+  previewUrl?: string;
+  uiAssets?: {
+    icons?: string[];
+    background?: string;
+  };
 }
 
 interface ChatGPTResponse {
@@ -111,30 +115,30 @@ const DesignGenerator: React.FC = () => {
     setError(null);
 
     try {
-      // Real API mode - call ChatGPT
+      // Generate design specifications with ChatGPT
       const designPrompt = createDesignPrompt();
       const aiResponse = await callChatGPTAPI(designPrompt, apiKey);
       
-      // Try to generate a DALL-E mockup
-      let mockupUrl = '';
+      // Generate UI assets with DALL-E (icons, backgrounds, etc.)
+      let uiAssets = {};
       try {
-        console.log('Starting DALL-E generation...');
-        mockupUrl = await generateDALLEMockup(formData.title, formData.description, apiKey);
-        console.log('DALL-E generation successful:', mockupUrl);
-      } catch (dalleError: any) {
-        console.error('DALL-E generation failed:', dalleError);
-        // Don't fail the entire process, just continue without the image
-        setError(`Design generated successfully, but image creation failed: ${dalleError.message}. You can still download the HTML design.`);
+        uiAssets = await generateUIAssets(formData.title, formData.description, apiKey);
+      } catch (dalleError) {
+        console.log('DALL-E asset generation failed, continuing with default assets');
       }
+      
+      // Generate the actual HTML prototype
+      const htmlPrototype = await generateHTMLPrototype(aiResponse, formData, uiAssets);
       
       const newDesign: GeneratedDesign = {
         id: Date.now().toString(),
         title: formData.title,
         description: formData.description,
-        designCode: generateDesignCode(aiResponse, formData),
+        designCode: htmlPrototype,
         timestamp: new Date(),
         aiResponse: aiResponse,
-        previewUrl: mockupUrl
+        previewUrl: undefined, // We'll show live HTML preview instead
+        uiAssets: uiAssets
       };
 
       setGeneratedDesign(newDesign);
@@ -225,83 +229,136 @@ Focus on creating a design that conveys trust, security, and professionalism whi
     return data.choices[0]?.message?.content || 'No response from AI';
   };
 
-  const generateDALLEMockup = async (title: string, description: string, apiKey: string): Promise<string> => {
-    console.log('Starting DALL-E 3 image generation...');
+  const generateUIAssets = async (title: string, description: string, apiKey: string): Promise<{
+    icons?: string[];
+    background?: string;
+  }> => {
+    console.log('Starting DALL-E 3 asset generation...');
     console.log('Using latest DALL-E 3 model for superior quality');
-    
-    let dallePrompt = `Create a high-fidelity, realistic UI mockup for a mobile banking application called "${title}". 
+
+    let assets: {
+      icons?: string[];
+      background?: string;
+    } = {};
+
+    // Generate icons
+    let iconPrompt = `Create a set of high-fidelity, realistic banking icons for a mobile application called "${title}". 
 
 Requirements: ${description}
 
-Style: Modern, professional banking interface with clean design, proper spacing, realistic UI elements like buttons, forms, cards, and navigation. Use a light color scheme with blue accents (#1E3A8A), professional typography, and realistic banking app components.
+Style: Clean, modern, and professional banking icons. Use a color scheme that includes blue accents (#1E3A8A) and professional typography. Icons should be easily recognizable and scalable.
 
-Make it look like a real, functional mobile banking application screenshot with:
-- Clean, modern interface design
-- Professional banking color scheme
-- Realistic UI components (buttons, forms, cards)
-- Proper spacing and typography
-- Mobile app layout and proportions
-- Banking-specific elements (account info, balances, transactions)
+Icons to include:
+- Account icon (bank account, credit card, savings)
+- Transaction icon (transfer, deposit, withdraw)
+- Settings icon (gear, user, lock)
+- Notification icon (bell, info)
+- Back icon (arrow-left)
+- Menu icon (hamburger)
 
-The image should look like a professional mobile banking app screenshot that could be used in a real application.`;
+The icons should look like they could be used in a real banking application.`;
 
-    // DALL-E 3 has a 4000 character limit for prompts (much higher than DALL-E 2)
-    if (dallePrompt.length > 4000) {
-      dallePrompt = dallePrompt.substring(0, 3997) + '...';
-      console.log('DALL-E 3 prompt was too long, trimmed to:', dallePrompt.length, 'characters');
+    if (iconPrompt.length > 4000) {
+      iconPrompt = iconPrompt.substring(0, 3997) + '...';
     }
-    
-    console.log('DALL-E 3 Prompt:', dallePrompt);
-    console.log('DALL-E 3 Prompt Length:', dallePrompt.length, 'characters');
-    
+    console.log('DALL-E 3 Icon Prompt:', iconPrompt);
+    console.log('DALL-E 3 Icon Prompt Length:', iconPrompt.length, 'characters');
+
     try {
-      const response = await fetch('https://api.openai.com/v1/images/generations', {
+      const iconResponse = await fetch('https://api.openai.com/v1/images/generations', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${apiKey}`
         },
         body: JSON.stringify({
-          model: 'dall-e-3', // Use DALL-E 3 instead of DALL-E 2
-          prompt: dallePrompt,
-          n: 1,
-          size: '1792x1024', // DALL-E 3 supports higher resolution
-          quality: 'hd', // DALL-E 3 supports HD quality
-          style: 'natural' // DALL-E 3 supports natural style
+          model: 'dall-e-3',
+          prompt: iconPrompt,
+          n: 10, // Generate multiple icons
+          size: '512x512',
+          quality: 'hd',
+          style: 'natural'
         })
       });
 
-      console.log('DALL-E 3 Response Status:', response.status);
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.error('DALL-E 3 API Error:', errorData);
-        console.error('DALL-E 3 Response Status:', response.status);
-        console.error('DALL-E 3 Response Headers:', response.headers);
-        throw new Error(`DALL-E 3 Error (${response.status}): ${errorData.error?.message || response.statusText}`);
+      if (!iconResponse.ok) {
+        const errorData = await iconResponse.json().catch(() => ({}));
+        console.error('DALL-E 3 Icon API Error:', errorData);
+        console.error('DALL-E 3 Icon Response Status:', iconResponse.status);
+        throw new Error(`DALL-E 3 Icon Error (${iconResponse.status}): ${errorData.error?.message || iconResponse.statusText}`);
       }
 
-      const data = await response.json();
-      console.log('DALL-E 3 Response Data:', data);
-      
-      const imageUrl = data.data[0]?.url;
-      if (!imageUrl) {
-        throw new Error('No image URL returned from DALL-E 3');
-      }
-      
-      console.log('DALL-E 3 Image URL:', imageUrl);
-      return imageUrl;
+      const iconData = await iconResponse.json();
+      assets.icons = iconData.data.map((item: any) => item.url);
+      console.log('DALL-E 3 Icons:', assets.icons);
     } catch (error) {
-      console.error('DALL-E 3 Generation Error:', error);
-      throw error;
+      console.error('DALL-E 3 Icon Generation Error:', error);
+      assets.icons = []; // Fallback to empty array
     }
+
+    // Generate background images
+    let backgroundPrompt = `Create a high-fidelity, realistic background image for a mobile banking application called "${title}". 
+
+Requirements: ${description}
+
+Style: Clean, modern, and professional banking background. Use a color scheme that includes blue accents (#1E3A8A) and professional typography. The background should be visually appealing and suitable for a banking application.
+
+The background should look like a professional banking app screenshot that could be used in a real application.`;
+
+    if (backgroundPrompt.length > 4000) {
+      backgroundPrompt = backgroundPrompt.substring(0, 3997) + '...';
+    }
+    console.log('DALL-E 3 Background Prompt:', backgroundPrompt);
+    console.log('DALL-E 3 Background Prompt Length:', backgroundPrompt.length, 'characters');
+
+    try {
+      const backgroundResponse = await fetch('https://api.openai.com/v1/images/generations', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          model: 'dall-e-3',
+          prompt: backgroundPrompt,
+          n: 1,
+          size: '1024x768', // Larger background
+          quality: 'hd',
+          style: 'natural'
+        })
+      });
+
+      if (!backgroundResponse.ok) {
+        const errorData = await backgroundResponse.json().catch(() => ({}));
+        console.error('DALL-E 3 Background API Error:', errorData);
+        console.error('DALL-E 3 Background Response Status:', backgroundResponse.status);
+        throw new Error(`DALL-E 3 Background Error (${backgroundResponse.status}): ${errorData.error?.message || backgroundResponse.statusText}`);
+      }
+
+      const backgroundData = await backgroundResponse.json();
+      assets.background = backgroundData.data[0].url;
+      console.log('DALL-E 3 Background:', assets.background);
+    } catch (error) {
+      console.error('DALL-E 3 Background Generation Error:', error);
+      assets.background = undefined; // Fallback to undefined
+    }
+
+    return assets;
   };
 
-  const generateDesignCode = (aiResponse: string, formData: DesignForm): string => {
+  const generateHTMLPrototype = async (aiResponse: string, formData: DesignForm, uiAssets: {
+    icons?: string[];
+    background?: string;
+  }): Promise<string> => {
+    console.log('Generating HTML prototype based on AI response...');
+    
     // Extract key design elements from AI response
     const hasCards = aiResponse.toLowerCase().includes('card') || aiResponse.toLowerCase().includes('grid');
     const hasNavigation = aiResponse.toLowerCase().includes('navigation') || aiResponse.toLowerCase().includes('menu');
     const hasForms = aiResponse.toLowerCase().includes('form') || aiResponse.toLowerCase().includes('input');
+    
+    // Use DALL-E assets if available, otherwise use defaults
+    const backgroundImage = uiAssets.background || 'linear-gradient(135deg, #1E3A8A 0%, #3B82F6 100%)';
     
     return `
       <!-- Generated by BCU Design Studio with AI -->
@@ -331,9 +388,10 @@ The image should look like a professional mobile banking app screenshot that cou
               
               body {
                   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                  background: linear-gradient(135deg, var(--bcu-gray-50) 0%, var(--bcu-white) 100%);
+                  background: ${backgroundImage};
                   color: var(--bcu-gray-900);
                   line-height: 1.6;
+                  min-height: 100vh;
               }
               
               .bcu-container {
@@ -343,43 +401,78 @@ The image should look like a professional mobile banking app screenshot that cou
               }
               
               .bcu-header {
-                  background: var(--bcu-primary);
-                  color: var(--bcu-white);
+                  background: var(--bcu-white);
+                  color: var(--bcu-primary);
                   padding: 2rem;
                   border-radius: 12px;
                   margin-bottom: 2rem;
                   text-align: center;
+                  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
               }
               
               .bcu-header h1 {
                   font-size: 2.5rem;
-                  margin-bottom: 1rem;
+                  margin-bottom: 0.5rem;
+                  color: var(--bcu-primary);
               }
               
               .bcu-header p {
-                  font-size: 1.2rem;
-                  opacity: 0.9;
+                  font-size: 1.1rem;
+                  color: var(--bcu-gray-600);
               }
               
               .bcu-main-content {
                   display: grid;
                   gap: 2rem;
-                  margin-bottom: 2rem;
               }
+              
+              ${hasNavigation ? `
+              .bcu-navigation {
+                  background: var(--bcu-white);
+                  border-radius: 12px;
+                  padding: 1.5rem;
+                  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+              }
+              
+              .bcu-nav-list {
+                  list-style: none;
+                  display: flex;
+                  gap: 2rem;
+                  justify-content: center;
+                  flex-wrap: wrap;
+              }
+              
+              .bcu-nav-item a {
+                  color: var(--bcu-primary);
+                  text-decoration: none;
+                  font-weight: 600;
+                  padding: 0.75rem 1.5rem;
+                  border-radius: 8px;
+                  transition: all 0.2s ease;
+              }
+              
+              .bcu-nav-item a:hover {
+                  background: var(--bcu-gray-50);
+              }
+              ` : ''}
               
               ${hasCards ? `
               .bcu-card-grid {
                   display: grid;
                   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-                  gap: 1.5rem;
+                  gap: 2rem;
               }
               
               .bcu-card {
                   background: var(--bcu-white);
-                  padding: 2rem;
                   border-radius: 12px;
-                  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-                  border: 1px solid var(--bcu-gray-200);
+                  padding: 2rem;
+                  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+                  transition: transform 0.2s ease;
+              }
+              
+              .bcu-card:hover {
+                  transform: translateY(-2px);
               }
               
               .bcu-card h3 {
@@ -389,65 +482,42 @@ The image should look like a professional mobile banking app screenshot that cou
               }
               ` : ''}
               
-              ${hasNavigation ? `
-              .bcu-navigation {
-                  background: var(--bcu-white);
-                  padding: 1rem;
-                  border-radius: 8px;
-                  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-                  margin-bottom: 2rem;
-              }
-              
-              .bcu-nav-list {
-                  display: flex;
-                  list-style: none;
-                  gap: 2rem;
-                  justify-content: center;
-              }
-              
-              .bcu-nav-item a {
-                  color: var(--bcu-primary);
-                  text-decoration: none;
-                  font-weight: 500;
-                  padding: 0.5rem 1rem;
-                  border-radius: 6px;
-                  transition: background-color 0.2s;
-              }
-              
-              .bcu-nav-item a:hover {
-                  background: var(--bcu-gray-50);
-              }
-              ` : ''}
-              
               ${hasForms ? `
               .bcu-form {
                   background: var(--bcu-white);
-                  padding: 2rem;
                   border-radius: 12px;
-                  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+                  padding: 2rem;
+                  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+              }
+              
+              .bcu-form h3 {
+                  color: var(--bcu-primary);
+                  margin-bottom: 1.5rem;
               }
               
               .bcu-form-group {
                   margin-bottom: 1.5rem;
               }
               
-              .bcu-label {
+              .bcu-form-group label {
                   display: block;
                   margin-bottom: 0.5rem;
                   font-weight: 600;
                   color: var(--bcu-gray-700);
               }
               
-              .bcu-input {
+              .bcu-form-group input,
+              .bcu-form-group select {
                   width: 100%;
                   padding: 0.75rem;
                   border: 2px solid var(--bcu-gray-200);
                   border-radius: 8px;
                   font-size: 1rem;
-                  transition: border-color 0.2s;
+                  transition: border-color 0.2s ease;
               }
               
-              .bcu-input:focus {
+              .bcu-form-group input:focus,
+              .bcu-form-group select:focus {
                   outline: none;
                   border-color: var(--bcu-primary);
               }
@@ -455,13 +525,13 @@ The image should look like a professional mobile banking app screenshot that cou
               .bcu-button {
                   background: var(--bcu-primary);
                   color: var(--bcu-white);
-                  padding: 0.75rem 1.5rem;
                   border: none;
+                  padding: 0.75rem 1.5rem;
                   border-radius: 8px;
                   font-size: 1rem;
                   font-weight: 600;
                   cursor: pointer;
-                  transition: background-color 0.2s;
+                  transition: background 0.2s ease;
               }
               
               .bcu-button:hover {
@@ -470,26 +540,21 @@ The image should look like a professional mobile banking app screenshot that cou
               ` : ''}
               
               .bcu-ai-insights {
-                  background: var(--bcu-gray-50);
-                  padding: 2rem;
+                  background: var(--bcu-white);
                   border-radius: 12px;
-                  border-left: 4px solid var(--bcu-secondary);
-                  margin-top: 2rem;
+                  padding: 2rem;
+                  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+                  border-left: 4px solid var(--bcu-primary);
               }
               
               .bcu-ai-insights h3 {
-                  color: var(--bcu-secondary);
+                  color: var(--bcu-primary);
                   margin-bottom: 1rem;
               }
               
-              .bcu-ai-insights pre {
-                  background: var(--bcu-white);
-                  padding: 1rem;
-                  border-radius: 8px;
-                  overflow-x: auto;
-                  white-space: pre-wrap;
-                  font-size: 0.9rem;
-                  line-height: 1.5;
+              .bcu-ai-insights p {
+                  color: var(--bcu-gray-600);
+                  line-height: 1.8;
               }
               
               @media (max-width: 768px) {
@@ -497,17 +562,21 @@ The image should look like a professional mobile banking app screenshot that cou
                       padding: 15px;
                   }
                   
-                  .bcu-header h1 {
-                      font-size: 2rem;
+                  .bcu-header {
+                      padding: 1.5rem;
                   }
                   
-                  .bcu-card-grid {
-                      grid-template-columns: 1fr;
+                  .bcu-header h1 {
+                      font-size: 2rem;
                   }
                   
                   .bcu-nav-list {
                       flex-direction: column;
                       gap: 1rem;
+                  }
+                  
+                  .bcu-card-grid {
+                      grid-template-columns: 1fr;
                   }
               }
           </style>
@@ -516,16 +585,17 @@ The image should look like a professional mobile banking app screenshot that cou
           <div class="bcu-container">
               <header class="bcu-header">
                   <h1>${formData.title}</h1>
-                  <p>${formData.bodyCopy || 'Professional banking interface designed with AI assistance'}</p>
+                  <p>${formData.description}</p>
               </header>
               
               <main class="bcu-main-content">
                   ${hasNavigation ? `
                   <nav class="bcu-navigation">
                       <ul class="bcu-nav-list">
-                          <li class="bcu-nav-item"><a href="#overview">Overview</a></li>
+                          <li class="bcu-nav-item"><a href="#dashboard">Dashboard</a></li>
                           <li class="bcu-nav-item"><a href="#accounts">Accounts</a></li>
                           <li class="bcu-nav-item"><a href="#transactions">Transactions</a></li>
+                          <li class="bcu-nav-item"><a href="#payments">Payments</a></li>
                           <li class="bcu-nav-item"><a href="#settings">Settings</a></li>
                       </ul>
                   </nav>
@@ -534,16 +604,18 @@ The image should look like a professional mobile banking app screenshot that cou
                   ${hasCards ? `
                   <div class="bcu-card-grid">
                       <div class="bcu-card">
-                          <h3>Account Overview</h3>
-                          <p>Manage your finances with ease and security</p>
+                          <h3>Account Balance</h3>
+                          <p style="font-size: 2rem; font-weight: bold; color: var(--bcu-primary);">$12,450.67</p>
+                          <p style="color: var(--bcu-gray-600);">Available Balance</p>
+                      </div>
+                      <div class="bcu-card">
+                          <h3>Recent Transactions</h3>
+                          <p style="color: var(--bcu-gray-600);">5 transactions this week</p>
+                          <p style="color: var(--bcu-success); font-weight: 600;">+$250.00</p>
                       </div>
                       <div class="bcu-card">
                           <h3>Quick Actions</h3>
-                          <p>Transfer funds, pay bills, and more</p>
-                      </div>
-                      <div class="bcu-card">
-                          <h3>Financial Insights</h3>
-                          <p>Track your spending and savings goals</p>
+                          <p style="color: var(--bcu-gray-600);">Transfer • Pay • Deposit</p>
                       </div>
                   </div>
                   ` : ''}
@@ -553,31 +625,63 @@ The image should look like a professional mobile banking app screenshot that cou
                       <h3>Quick Transfer</h3>
                       <form>
                           <div class="bcu-form-group">
-                              <label class="bcu-label">From Account</label>
-                              <select class="bcu-input">
+                              <label for="to-account">To Account</label>
+                              <select id="to-account">
+                                  <option>Select Account</option>
                                   <option>Checking Account</option>
                                   <option>Savings Account</option>
                               </select>
                           </div>
                           <div class="bcu-form-group">
-                              <label class="bcu-label">To Account</label>
-                              <input type="text" class="bcu-input" placeholder="Enter account number">
+                              <label for="amount">Amount</label>
+                              <input type="number" id="amount" placeholder="Enter amount" min="0" step="0.01">
                           </div>
-                          <div class="bcu-form-group">
-                              <label class="bcu-label">Amount</label>
-                              <input type="number" class="bcu-input" placeholder="0.00">
-                          </div>
-                          <button type="submit" class="bcu-button">Transfer Funds</button>
+                          <button type="submit" class="bcu-button">Send Transfer</button>
                       </form>
                   </div>
                   ` : ''}
+                  
+                  <div class="bcu-ai-insights">
+                      <h3>AI Design Recommendations</h3>
+                      <p>${aiResponse.substring(0, 500)}...</p>
+                  </div>
               </main>
-              
-              <div class="bcu-ai-insights">
-                  <h3>AI Design Recommendations</h3>
-                  <pre>${aiResponse}</pre>
-              </div>
           </div>
+          
+          <script>
+              // Interactive functionality
+              document.addEventListener('DOMContentLoaded', function() {
+                  // Form submission
+                  const forms = document.querySelectorAll('form');
+                  forms.forEach(form => {
+                      form.addEventListener('submit', function(e) {
+                          e.preventDefault();
+                          alert('Transfer submitted! (This is a prototype)');
+                      });
+                  });
+                  
+                  // Navigation highlighting
+                  const navLinks = document.querySelectorAll('.bcu-nav-item a');
+                  navLinks.forEach(link => {
+                      link.addEventListener('click', function(e) {
+                          e.preventDefault();
+                          navLinks.forEach(l => l.style.background = '');
+                          this.style.background = 'var(--bcu-gray-50)';
+                      });
+                  });
+                  
+                  // Card interactions
+                  const cards = document.querySelectorAll('.bcu-card');
+                  cards.forEach(card => {
+                      card.addEventListener('click', function() {
+                          this.style.transform = 'scale(1.02)';
+                          setTimeout(() => {
+                              this.style.transform = '';
+                          }, 200);
+                      });
+                  });
+              });
+          </script>
       </body>
       </html>
     `;
@@ -857,7 +961,7 @@ The image should look like a professional mobile banking app screenshot that cou
               <span>AI is generating your design...</span>
             </div>
             <p className="bcu-text-gray" style={{ textAlign: 'center', marginTop: 'var(--bcu-spacing-4)' }}>
-              This may take a few moments. ChatGPT is analyzing your requirements and DALL-E 3 is creating a high-quality visual mockup.
+              This may take a few moments. ChatGPT is analyzing your requirements and generating a complete HTML prototype with DALL-E 3 assets.
             </p>
             <div style={{ 
               backgroundColor: 'var(--bcu-primary)', 
@@ -868,7 +972,7 @@ The image should look like a professional mobile banking app screenshot that cou
               fontSize: 'var(--bcu-font-size-sm)',
               textAlign: 'center'
             }}>
-              🔄 <strong>Processing:</strong> ChatGPT → Design Specs → DALL-E 3 → HD Visual Mockup
+              🔄 <strong>Processing:</strong> ChatGPT → Design Specs → DALL-E 3 Assets → HTML Prototype
             </div>
           </div>
         )}
@@ -881,38 +985,44 @@ The image should look like a professional mobile banking app screenshot that cou
                 {generatedDesign.description}
               </p>
               
-              {generatedDesign.previewUrl && (
-                <div className="bcu-design-preview" style={{ 
-                  backgroundColor: 'var(--bcu-white)', 
-                  padding: 'var(--bcu-spacing-6)', 
-                  borderRadius: 'var(--bcu-radius-md)',
+              {/* Live HTML Preview */}
+              <div className="bcu-design-preview" style={{ 
+                backgroundColor: 'var(--bcu-white)', 
+                padding: 'var(--bcu-spacing-6)', 
+                borderRadius: 'var(--bcu-radius-md)',
+                border: '1px solid var(--bcu-gray-200)',
+                marginBottom: 'var(--bcu-spacing-6)'
+              }}>
+                <h4 style={{ color: 'var(--bcu-primary)', marginBottom: 'var(--bcu-spacing-4)' }}>
+                  🚀 Live HTML Prototype Preview
+                </h4>
+                <div style={{ 
                   border: '1px solid var(--bcu-gray-200)',
-                  marginBottom: 'var(--bcu-spacing-6)'
+                  borderRadius: 'var(--bcu-radius-md)',
+                  overflow: 'hidden',
+                  marginBottom: 'var(--bcu-spacing-4)'
                 }}>
-                  <h4 style={{ color: 'var(--bcu-primary)', marginBottom: 'var(--bcu-spacing-4)' }}>
-                    🎨 AI-Generated Visual Mockup (DALL-E 3 HD)
-                  </h4>
-                  <img 
-                    src={generatedDesign.previewUrl} 
-                    alt="AI-generated design mockup"
+                  <iframe
+                    srcDoc={generatedDesign.designCode}
                     style={{
                       width: '100%',
-                      maxWidth: '600px',
-                      height: 'auto',
-                      borderRadius: 'var(--bcu-radius-md)',
-                      boxShadow: 'var(--bcu-shadow-md)'
+                      height: '600px',
+                      border: 'none',
+                      backgroundColor: 'white'
                     }}
+                    title="Generated HTML Prototype"
                   />
-                  <p className="bcu-text-gray" style={{ 
-                    fontSize: 'var(--bcu-font-size-sm)', 
-                    marginTop: 'var(--bcu-spacing-3)',
-                    textAlign: 'center'
-                  }}>
-                    Generated by DALL-E 3 AI - Ultra-HD Quality
-                  </p>
                 </div>
-              )}
+                <p className="bcu-text-gray" style={{ 
+                  fontSize: 'var(--bcu-font-size-sm)', 
+                  marginTop: 'var(--bcu-spacing-3)',
+                  textAlign: 'center'
+                }}>
+                  Interactive HTML Prototype - Click and interact with the elements above!
+                </p>
+              </div>
               
+              {/* AI Design Recommendations */}
               <div className="bcu-design-preview" style={{ 
                 backgroundColor: 'var(--bcu-white)', 
                 padding: 'var(--bcu-spacing-6)', 
@@ -937,6 +1047,7 @@ The image should look like a professional mobile banking app screenshot that cou
                 </div>
               </div>
 
+              {/* Generated HTML Code */}
               <div className="bcu-design-preview" style={{ 
                 backgroundColor: 'var(--bcu-white)', 
                 padding: 'var(--bcu-spacing-6)', 
@@ -965,8 +1076,9 @@ The image should look like a professional mobile banking app screenshot that cou
                 </div>
               </div>
 
+              {/* Design Actions */}
               <div className="bcu-design-actions">
-                <button className="bcu-button bcu-button-primary" onClick={downloadDesign}>
+                <button className="bcu-button bcu-button-outline" onClick={downloadDesign}>
                   <Download size={20} />
                   Download HTML
                 </button>
@@ -974,9 +1086,9 @@ The image should look like a professional mobile banking app screenshot that cou
                   <Share2 size={20} />
                   Share Design
                 </button>
-                <button className="bcu-button bcu-button-outline" onClick={resetForm}>
+                <button className="bcu-button bcu-button-primary" onClick={resetForm}>
                   <RotateCcw size={20} />
-                  Generate New
+                  Generate New Design
                 </button>
               </div>
             </div>
@@ -987,10 +1099,10 @@ The image should look like a professional mobile banking app screenshot that cou
           <div className="bcu-preview-container">
             <div className="bcu-preview-placeholder">
               <FileText size={64} style={{ color: 'var(--bcu-gray-400)', marginBottom: 'var(--bcu-spacing-4)' }} />
-              <h3>Ready to Generate Your Design</h3>
+              <h3>Ready to Generate Your HTML Prototype</h3>
               <p className="bcu-text-gray">
-                Enter your OpenAI API key above, fill out the form, and click "Generate Design" to create your high-fidelity banking interface.
-                Our AI will analyze your requirements and produce a professional design with HTML code and visual mockups.
+                Enter your OpenAI API key above, fill out the form, and click "Generate Design" to create your interactive banking interface.
+                Our AI will analyze your requirements and produce a complete HTML prototype with working components and DALL-E 3 generated assets.
               </p>
               <div style={{ 
                 backgroundColor: 'var(--bcu-primary)', 
@@ -1000,7 +1112,7 @@ The image should look like a professional mobile banking app screenshot that cou
                 marginTop: 'var(--bcu-spacing-4)',
                 fontSize: 'var(--bcu-font-size-sm)'
               }}>
-                🚀 <strong>Real AI Integration</strong> - Uses ChatGPT for design specs and DALL-E for visual mockups
+                🚀 <strong>Real AI Integration</strong> - Uses ChatGPT for design specs and DALL-E 3 for UI assets, then generates complete HTML prototypes
               </div>
             </div>
           </div>
