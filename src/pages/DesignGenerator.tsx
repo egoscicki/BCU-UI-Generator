@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Zap, Download, Share2, RotateCcw, Upload, FileText, AlertCircle } from 'lucide-react';
 
 interface DesignForm {
@@ -40,10 +40,43 @@ const DesignGenerator: React.FC = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedDesign, setGeneratedDesign] = useState<GeneratedDesign | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [apiKey, setApiKey] = useState<string>('');
+  const [apiKey, setApiKey] = useState<string>(''); // State for API key input
+  const [wireframeData, setWireframeData] = useState<any>(null); // State for wireframe data
   
-  // Check if we have an API key
   const hasValidAPIKey = apiKey && apiKey.startsWith('sk-');
+
+  // Load wireframe data from localStorage if available
+  useEffect(() => {
+    const savedWireframe = localStorage.getItem('bcu-wireframe-data');
+    if (savedWireframe) {
+      try {
+        const data = JSON.parse(savedWireframe);
+        setWireframeData(data);
+      } catch (error) {
+        console.error('Failed to load wireframe data:', error);
+      }
+    }
+  }, []);
+
+  const loadWireframeData = () => {
+    const savedWireframe = localStorage.getItem('bcu-wireframe-data');
+    if (savedWireframe) {
+      try {
+        const data = JSON.parse(savedWireframe);
+        setWireframeData(data);
+        alert('Wireframe loaded successfully! The AI will now use your wireframe as a guide.');
+      } catch (error) {
+        setError('Failed to load wireframe data. Please try again.');
+      }
+    } else {
+      setError('No wireframe data found. Please create a wireframe first in the Wireframe Editor.');
+    }
+  };
+
+  const clearWireframeData = () => {
+    setWireframeData(null);
+    localStorage.removeItem('bcu-wireframe-data');
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -114,7 +147,7 @@ const DesignGenerator: React.FC = () => {
   };
 
   const createDesignPrompt = (): string => {
-    return `You are a professional UI/UX designer specializing in banking and financial applications. 
+    let prompt = `You are a professional UI/UX designer specializing in banking and financial applications. 
 
 Based on the following requirements, generate a detailed design specification for a high-fidelity banking interface:
 
@@ -134,6 +167,23 @@ Please provide:
 7. Mobile responsiveness guidelines
 
 Focus on creating a design that conveys trust, security, and professionalism while maintaining excellent usability. The design should follow modern banking UI/UX best practices.`;
+
+    if (wireframeData) {
+      prompt += `\n\n**Wireframe Information:**\n`;
+      prompt += `- Wireframe Title: ${wireframeData.title || 'N/A'}\n`;
+      prompt += `- Wireframe Description: ${wireframeData.description || 'N/A'}\n`;
+      prompt += `- Wireframe Type: ${wireframeData.type || 'N/A'}\n`;
+      prompt += `- Wireframe Target Audience: ${wireframeData.targetAudience || 'N/A'}\n`;
+      prompt += `- Wireframe Image: ${wireframeData.imageUrl || 'N/A'}\n`;
+      prompt += `- Wireframe Components: ${wireframeData.components || 'N/A'}\n`;
+      prompt += `- Wireframe Color Scheme: ${wireframeData.colorScheme || 'N/A'}\n`;
+      prompt += `- Wireframe Typography: ${wireframeData.typography || 'N/A'}\n`;
+      prompt += `- Wireframe Interaction Flow: ${wireframeData.interactionFlow || 'N/A'}\n`;
+      prompt += `- Wireframe Accessibility: ${wireframeData.accessibility || 'N/A'}\n`;
+      prompt += `- Wireframe Mobile Responsiveness: ${wireframeData.mobileResponsiveness || 'N/A'}\n`;
+    }
+
+    return prompt;
   };
 
   const callChatGPTAPI = async (prompt: string, apiKey: string): Promise<string> => {
@@ -176,8 +226,8 @@ Focus on creating a design that conveys trust, security, and professionalism whi
   };
 
   const generateDALLEMockup = async (title: string, description: string, apiKey: string): Promise<string> => {
-    console.log('Starting DALL-E image generation...');
-    console.log('Using updated DALL-E API format (no invalid parameters)');
+    console.log('Starting DALL-E 3 image generation...');
+    console.log('Using latest DALL-E 3 model for superior quality');
     
     let dallePrompt = `Create a high-fidelity, realistic UI mockup for a mobile banking application called "${title}". 
 
@@ -195,14 +245,14 @@ Make it look like a real, functional mobile banking application screenshot with:
 
 The image should look like a professional mobile banking app screenshot that could be used in a real application.`;
 
-    // DALL-E has a 1000 character limit for prompts
-    if (dallePrompt.length > 1000) {
-      dallePrompt = dallePrompt.substring(0, 997) + '...';
-      console.log('DALL-E prompt was too long, trimmed to:', dallePrompt.length, 'characters');
+    // DALL-E 3 has a 4000 character limit for prompts (much higher than DALL-E 2)
+    if (dallePrompt.length > 4000) {
+      dallePrompt = dallePrompt.substring(0, 3997) + '...';
+      console.log('DALL-E 3 prompt was too long, trimmed to:', dallePrompt.length, 'characters');
     }
     
-    console.log('DALL-E Prompt:', dallePrompt);
-    console.log('DALL-E Prompt Length:', dallePrompt.length, 'characters');
+    console.log('DALL-E 3 Prompt:', dallePrompt);
+    console.log('DALL-E 3 Prompt Length:', dallePrompt.length, 'characters');
     
     try {
       const response = await fetch('https://api.openai.com/v1/images/generations', {
@@ -212,34 +262,37 @@ The image should look like a professional mobile banking app screenshot that cou
           'Authorization': `Bearer ${apiKey}`
         },
         body: JSON.stringify({
+          model: 'dall-e-3', // Use DALL-E 3 instead of DALL-E 2
           prompt: dallePrompt,
           n: 1,
-          size: '1024x1024'
+          size: '1792x1024', // DALL-E 3 supports higher resolution
+          quality: 'hd', // DALL-E 3 supports HD quality
+          style: 'natural' // DALL-E 3 supports natural style
         })
       });
 
-      console.log('DALL-E Response Status:', response.status);
+      console.log('DALL-E 3 Response Status:', response.status);
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        console.error('DALL-E API Error:', errorData);
-        console.error('DALL-E Response Status:', response.status);
-        console.error('DALL-E Response Headers:', response.headers);
-        throw new Error(`DALL-E Error (${response.status}): ${errorData.error?.message || response.statusText}`);
+        console.error('DALL-E 3 API Error:', errorData);
+        console.error('DALL-E 3 Response Status:', response.status);
+        console.error('DALL-E 3 Response Headers:', response.headers);
+        throw new Error(`DALL-E 3 Error (${response.status}): ${errorData.error?.message || response.statusText}`);
       }
 
       const data = await response.json();
-      console.log('DALL-E Response Data:', data);
+      console.log('DALL-E 3 Response Data:', data);
       
       const imageUrl = data.data[0]?.url;
       if (!imageUrl) {
-        throw new Error('No image URL returned from DALL-E');
+        throw new Error('No image URL returned from DALL-E 3');
       }
       
-      console.log('DALL-E Image URL:', imageUrl);
+      console.log('DALL-E 3 Image URL:', imageUrl);
       return imageUrl;
     } catch (error) {
-      console.error('DALL-E Generation Error:', error);
+      console.error('DALL-E 3 Generation Error:', error);
       throw error;
     }
   };
@@ -679,6 +732,63 @@ The image should look like a professional mobile banking app screenshot that cou
             </div>
           </div>
 
+          {/* Wireframe Integration Section */}
+          <div className="bcu-form-group">
+            <label className="bcu-label">
+              Wireframe Integration
+            </label>
+            <div style={{ 
+              backgroundColor: 'var(--bcu-gray-50)', 
+              padding: 'var(--bcu-spacing-4)', 
+              borderRadius: 'var(--bcu-radius-md)',
+              border: '1px solid var(--bcu-gray-200)'
+            }}>
+              {wireframeData ? (
+                <div>
+                  <div style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: 'var(--bcu-spacing-3)',
+                    marginBottom: 'var(--bcu-spacing-3)'
+                  }}>
+                    <div style={{ 
+                      width: 12, 
+                      height: 12, 
+                      backgroundColor: 'var(--bcu-success)', 
+                      borderRadius: '50%' 
+                    }} />
+                    <strong style={{ color: 'var(--bcu-success)' }}>
+                      Wireframe Loaded
+                    </strong>
+                  </div>
+                  <p className="bcu-text-gray" style={{ marginBottom: 'var(--bcu-spacing-3)' }}>
+                    Your wireframe will be used as a guide for AI design generation.
+                  </p>
+                  <button 
+                    className="bcu-button bcu-button-outline" 
+                    onClick={clearWireframeData}
+                    style={{ fontSize: 'var(--bcu-font-size-sm)' }}
+                  >
+                    Remove Wireframe
+                  </button>
+                </div>
+              ) : (
+                <div>
+                  <p className="bcu-text-gray" style={{ marginBottom: 'var(--bcu-spacing-3)' }}>
+                    No wireframe loaded. Create one in the Wireframe Editor first, then load it here for better AI results.
+                  </p>
+                  <button 
+                    className="bcu-button bcu-button-outline" 
+                    onClick={loadWireframeData}
+                    style={{ fontSize: 'var(--bcu-font-size-sm)' }}
+                  >
+                    Load Wireframe
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
           <div className="bcu-form-row full-width">
             <div className="bcu-form-group">
               <label className="bcu-label" htmlFor="bodyCopy">Main Content/Copy</label>
@@ -747,7 +857,7 @@ The image should look like a professional mobile banking app screenshot that cou
               <span>AI is generating your design...</span>
             </div>
             <p className="bcu-text-gray" style={{ textAlign: 'center', marginTop: 'var(--bcu-spacing-4)' }}>
-              This may take a few moments. ChatGPT is analyzing your requirements and DALL-E is creating a visual mockup.
+              This may take a few moments. ChatGPT is analyzing your requirements and DALL-E 3 is creating a high-quality visual mockup.
             </p>
             <div style={{ 
               backgroundColor: 'var(--bcu-primary)', 
@@ -758,7 +868,7 @@ The image should look like a professional mobile banking app screenshot that cou
               fontSize: 'var(--bcu-font-size-sm)',
               textAlign: 'center'
             }}>
-              🔄 <strong>Processing:</strong> ChatGPT → Design Specs → DALL-E → Visual Mockup
+              🔄 <strong>Processing:</strong> ChatGPT → Design Specs → DALL-E 3 → HD Visual Mockup
             </div>
           </div>
         )}
@@ -780,7 +890,7 @@ The image should look like a professional mobile banking app screenshot that cou
                   marginBottom: 'var(--bcu-spacing-6)'
                 }}>
                   <h4 style={{ color: 'var(--bcu-primary)', marginBottom: 'var(--bcu-spacing-4)' }}>
-                    🎨 AI-Generated Visual Mockup
+                    🎨 AI-Generated Visual Mockup (DALL-E 3 HD)
                   </h4>
                   <img 
                     src={generatedDesign.previewUrl} 
@@ -798,7 +908,7 @@ The image should look like a professional mobile banking app screenshot that cou
                     marginTop: 'var(--bcu-spacing-3)',
                     textAlign: 'center'
                   }}>
-                    Generated by DALL-E AI
+                    Generated by DALL-E 3 AI - Ultra-HD Quality
                   </p>
                 </div>
               )}
