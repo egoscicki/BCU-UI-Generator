@@ -350,12 +350,19 @@ The background should look like a professional banking app screenshot that could
     icons?: string[];
     background?: string;
   }): Promise<string> => {
-    console.log('Generating HTML prototype based on AI response...');
+    console.log('Generating HTML prototype based on AI response and wireframe data...');
     
     // Extract key design elements from AI response
     const hasCards = aiResponse.toLowerCase().includes('card') || aiResponse.toLowerCase().includes('grid');
     const hasNavigation = aiResponse.toLowerCase().includes('navigation') || aiResponse.toLowerCase().includes('menu');
     const hasForms = aiResponse.toLowerCase().includes('form') || aiResponse.toLowerCase().includes('input');
+    
+    // Analyze wireframe data if available
+    let wireframeLayout = null;
+    if (wireframeData && wireframeData.elements) {
+      wireframeLayout = analyzeWireframeLayout(wireframeData.elements);
+      console.log('Wireframe layout analysis:', wireframeLayout);
+    }
     
     // Use DALL-E assets if available, otherwise use defaults
     const backgroundImage = uiAssets.background || 'linear-gradient(135deg, #1E3A8A 0%, #3B82F6 100%)';
@@ -426,159 +433,7 @@ The background should look like a professional banking app screenshot that could
                   gap: 2rem;
               }
               
-              ${hasNavigation ? `
-              .bcu-navigation {
-                  background: var(--bcu-white);
-                  border-radius: 12px;
-                  padding: 1.5rem;
-                  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-              }
-              
-              .bcu-nav-list {
-                  list-style: none;
-                  display: flex;
-                  gap: 2rem;
-                  justify-content: center;
-                  flex-wrap: wrap;
-              }
-              
-              .bcu-nav-item a {
-                  color: var(--bcu-primary);
-                  text-decoration: none;
-                  font-weight: 600;
-                  padding: 0.75rem 1.5rem;
-                  border-radius: 8px;
-                  transition: all 0.2s ease;
-              }
-              
-              .bcu-nav-item a:hover {
-                  background: var(--bcu-gray-50);
-              }
-              ` : ''}
-              
-              ${hasCards ? `
-              .bcu-card-grid {
-                  display: grid;
-                  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-                  gap: 2rem;
-              }
-              
-              .bcu-card {
-                  background: var(--bcu-white);
-                  border-radius: 12px;
-                  padding: 2rem;
-                  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-                  transition: transform 0.2s ease;
-              }
-              
-              .bcu-card:hover {
-                  transform: translateY(-2px);
-              }
-              
-              .bcu-card h3 {
-                  color: var(--bcu-primary);
-                  margin-bottom: 1rem;
-                  font-size: 1.5rem;
-              }
-              ` : ''}
-              
-              ${hasForms ? `
-              .bcu-form {
-                  background: var(--bcu-white);
-                  border-radius: 12px;
-                  padding: 2rem;
-                  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-              }
-              
-              .bcu-form h3 {
-                  color: var(--bcu-primary);
-                  margin-bottom: 1.5rem;
-              }
-              
-              .bcu-form-group {
-                  margin-bottom: 1.5rem;
-              }
-              
-              .bcu-form-group label {
-                  display: block;
-                  margin-bottom: 0.5rem;
-                  font-weight: 600;
-                  color: var(--bcu-gray-700);
-              }
-              
-              .bcu-form-group input,
-              .bcu-form-group select {
-                  width: 100%;
-                  padding: 0.75rem;
-                  border: 2px solid var(--bcu-gray-200);
-                  border-radius: 8px;
-                  font-size: 1rem;
-                  transition: border-color 0.2s ease;
-              }
-              
-              .bcu-form-group input:focus,
-              .bcu-form-group select:focus {
-                  outline: none;
-                  border-color: var(--bcu-primary);
-              }
-              
-              .bcu-button {
-                  background: var(--bcu-primary);
-                  color: var(--bcu-white);
-                  border: none;
-                  padding: 0.75rem 1.5rem;
-                  border-radius: 8px;
-                  font-size: 1rem;
-                  font-weight: 600;
-                  cursor: pointer;
-                  transition: background 0.2s ease;
-              }
-              
-              .bcu-button:hover {
-                  background: var(--bcu-primary-light);
-              }
-              ` : ''}
-              
-              .bcu-ai-insights {
-                  background: var(--bcu-white);
-                  border-radius: 12px;
-                  padding: 2rem;
-                  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-                  border-left: 4px solid var(--bcu-primary);
-              }
-              
-              .bcu-ai-insights h3 {
-                  color: var(--bcu-primary);
-                  margin-bottom: 1rem;
-              }
-              
-              .bcu-ai-insights p {
-                  color: var(--bcu-gray-600);
-                  line-height: 1.8;
-              }
-              
-              @media (max-width: 768px) {
-                  .bcu-container {
-                      padding: 15px;
-                  }
-                  
-                  .bcu-header {
-                      padding: 1.5rem;
-                  }
-                  
-                  .bcu-header h1 {
-                      font-size: 2rem;
-                  }
-                  
-                  .bcu-nav-list {
-                      flex-direction: column;
-                      gap: 1rem;
-                  }
-                  
-                  .bcu-card-grid {
-                      grid-template-columns: 1fr;
-                  }
-              }
+              ${wireframeLayout ? generateWireframeBasedCSS(wireframeLayout) : generateDefaultCSS(hasNavigation, hasCards, hasForms)}
           </style>
       </head>
       <body>
@@ -589,57 +444,7 @@ The background should look like a professional banking app screenshot that could
               </header>
               
               <main class="bcu-main-content">
-                  ${hasNavigation ? `
-                  <nav class="bcu-navigation">
-                      <ul class="bcu-nav-list">
-                          <li class="bcu-nav-item"><a href="#dashboard">Dashboard</a></li>
-                          <li class="bcu-nav-item"><a href="#accounts">Accounts</a></li>
-                          <li class="bcu-nav-item"><a href="#transactions">Transactions</a></li>
-                          <li class="bcu-nav-item"><a href="#payments">Payments</a></li>
-                          <li class="bcu-nav-item"><a href="#settings">Settings</a></li>
-                      </ul>
-                  </nav>
-                  ` : ''}
-                  
-                  ${hasCards ? `
-                  <div class="bcu-card-grid">
-                      <div class="bcu-card">
-                          <h3>Account Balance</h3>
-                          <p style="font-size: 2rem; font-weight: bold; color: var(--bcu-primary);">$12,450.67</p>
-                          <p style="color: var(--bcu-gray-600);">Available Balance</p>
-                      </div>
-                      <div class="bcu-card">
-                          <h3>Recent Transactions</h3>
-                          <p style="color: var(--bcu-gray-600);">5 transactions this week</p>
-                          <p style="color: var(--bcu-success); font-weight: 600;">+$250.00</p>
-                      </div>
-                      <div class="bcu-card">
-                          <h3>Quick Actions</h3>
-                          <p style="color: var(--bcu-gray-600);">Transfer • Pay • Deposit</p>
-                      </div>
-                  </div>
-                  ` : ''}
-                  
-                  ${hasForms ? `
-                  <div class="bcu-form">
-                      <h3>Quick Transfer</h3>
-                      <form>
-                          <div class="bcu-form-group">
-                              <label for="to-account">To Account</label>
-                              <select id="to-account">
-                                  <option>Select Account</option>
-                                  <option>Checking Account</option>
-                                  <option>Savings Account</option>
-                              </select>
-                          </div>
-                          <div class="bcu-form-group">
-                              <label for="amount">Amount</label>
-                              <input type="number" id="amount" placeholder="Enter amount" min="0" step="0.01">
-                          </div>
-                          <button type="submit" class="bcu-button">Send Transfer</button>
-                      </form>
-                  </div>
-                  ` : ''}
+                  ${wireframeLayout ? generateWireframeBasedHTML(wireframeLayout) : generateDefaultHTML(hasNavigation, hasCards, hasForms)}
                   
                   <div class="bcu-ai-insights">
                       <h3>AI Design Recommendations</h3>
@@ -685,6 +490,404 @@ The background should look like a professional banking app screenshot that could
       </body>
       </html>
     `;
+  };
+
+  const analyzeWireframeLayout = (elements: any[]) => {
+    const layout: {
+      header: any;
+      navigation: any;
+      mainContent: any[];
+      sidebar: any;
+      footer: any;
+      forms: any[];
+      cards: any[];
+      textElements: any[];
+    } = {
+      header: null,
+      navigation: null,
+      mainContent: [],
+      sidebar: null,
+      footer: null,
+      forms: [],
+      cards: [],
+      textElements: []
+    };
+    
+    elements.forEach(element => {
+      switch (element.type) {
+        case 'rectangle':
+          if (element.y < 100) {
+            layout.header = element;
+          } else if (element.y > 500) {
+            layout.footer = element;
+          } else if (element.x < 200) {
+            layout.sidebar = element;
+          } else {
+            layout.mainContent.push(element);
+          }
+          break;
+        case 'text':
+          layout.textElements.push(element);
+          break;
+        case 'drawing':
+          // Analyze drawing patterns to determine layout
+          if (element.points && element.points.length > 2) {
+            const isHorizontal = Math.abs(element.points[element.points.length - 1].x - element.points[0].x) > 
+                                Math.abs(element.points[element.points.length - 1].y - element.points[0].y);
+            if (isHorizontal && element.y < 150) {
+              layout.navigation = element;
+            }
+          }
+          break;
+      }
+    });
+    
+    return layout;
+  };
+
+  const generateWireframeBasedCSS = (layout: {
+    header: any;
+    navigation: any;
+    mainContent: any[];
+    sidebar: any;
+    footer: any;
+    forms: any[];
+    cards: any[];
+    textElements: any[];
+  }) => {
+    let css = '';
+    
+    if (layout.header) {
+      css += `
+        .bcu-header {
+          position: relative;
+          height: ${layout.header.height}px;
+          background: var(--bcu-white);
+          border-radius: 12px;
+          margin-bottom: 2rem;
+          box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+      `;
+    }
+    
+    if (layout.navigation) {
+      css += `
+        .bcu-navigation {
+          position: relative;
+          height: ${layout.navigation.height || 60}px;
+          background: var(--bcu-white);
+          border-radius: 12px;
+          margin-bottom: 2rem;
+          box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+      `;
+    }
+    
+    if (layout.sidebar) {
+      css += `
+        .bcu-main-content {
+          display: grid;
+          grid-template-columns: ${layout.sidebar.width}px 1fr;
+          gap: 2rem;
+        }
+        
+        .bcu-sidebar {
+          background: var(--bcu-white);
+          border-radius: 12px;
+          padding: 1.5rem;
+          box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+          height: fit-content;
+        }
+      `;
+    }
+    
+    return css;
+  };
+
+  const generateWireframeBasedHTML = (layout: {
+    header: any;
+    navigation: any;
+    mainContent: any[];
+    sidebar: any;
+    footer: any;
+    forms: any[];
+    cards: any[];
+    textElements: any[];
+  }) => {
+    let html = '';
+    
+    if (layout.navigation) {
+      html += `
+        <nav class="bcu-navigation">
+          <ul class="bcu-nav-list">
+            <li class="bcu-nav-item"><a href="#dashboard">Dashboard</a></li>
+            <li class="bcu-nav-item"><a href="#accounts">Accounts</a></li>
+            <li class="bcu-nav-item"><a href="#transactions">Transactions</a></li>
+            <li class="bcu-nav-item"><a href="#payments">Payments</a></li>
+            <li class="bcu-nav-item"><a href="#settings">Settings</a></li>
+          </ul>
+        </nav>
+      `;
+    }
+    
+    if (layout.sidebar) {
+      html += `
+        <aside class="bcu-sidebar">
+          <h3>Quick Actions</h3>
+          <ul>
+            <li>Transfer Funds</li>
+            <li>Pay Bills</li>
+            <li>View Statements</li>
+          </ul>
+        </aside>
+      `;
+    }
+    
+    // Generate content based on wireframe elements
+    layout.mainContent.forEach((element: any, index: number) => {
+      if (element.type === 'rectangle') {
+        html += `
+          <div class="bcu-card" style="height: ${element.height}px;">
+            <h3>Content Area ${index + 1}</h3>
+            <p>This area corresponds to your wireframe element at position (${element.x}, ${element.y}) with size ${element.width}x${element.height}</p>
+          </div>
+        `;
+      }
+    });
+    
+    return html;
+  };
+
+  const generateDefaultCSS = (hasNavigation: boolean, hasCards: boolean, hasForms: boolean) => {
+    let css = '';
+    
+    if (hasNavigation) {
+      css += `
+        .bcu-navigation {
+          background: var(--bcu-white);
+          border-radius: 12px;
+          padding: 1.5rem;
+          box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .bcu-nav-list {
+          list-style: none;
+          display: flex;
+          gap: 2rem;
+          justify-content: center;
+          flex-wrap: wrap;
+        }
+        
+        .bcu-nav-item a {
+          color: var(--bcu-primary);
+          text-decoration: none;
+          font-weight: 600;
+          padding: 0.75rem 1.5rem;
+          border-radius: 8px;
+          transition: all 0.2s ease;
+        }
+        
+        .bcu-nav-item a:hover {
+          background: var(--bcu-gray-50);
+        }
+      `;
+    }
+    
+    if (hasCards) {
+      css += `
+        .bcu-card-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+          gap: 2rem;
+        }
+        
+        .bcu-card {
+          background: var(--bcu-white);
+          border-radius: 12px;
+          padding: 2rem;
+          box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+          transition: transform 0.2s ease;
+        }
+        
+        .bcu-card:hover {
+          transform: translateY(-2px);
+        }
+        
+        .bcu-card h3 {
+          color: var(--bcu-primary);
+          margin-bottom: 1rem;
+          font-size: 1.5rem;
+        }
+      `;
+    }
+    
+    if (hasForms) {
+      css += `
+        .bcu-form {
+          background: var(--bcu-white);
+          border-radius: 12px;
+          padding: 2rem;
+          box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .bcu-form h3 {
+          color: var(--bcu-primary);
+          margin-bottom: 1.5rem;
+        }
+        
+        .bcu-form-group {
+          margin-bottom: 1.5rem;
+        }
+        
+        .bcu-form-group label {
+          display: block;
+          margin-bottom: 0.5rem;
+          font-weight: 600;
+          color: var(--bcu-gray-700);
+        }
+        
+        .bcu-form-group input,
+        .bcu-form-group select {
+          width: 100%;
+          padding: 0.75rem;
+          border: 2px solid var(--bcu-gray-200);
+          border-radius: 8px;
+          font-size: 1rem;
+          transition: border-color 0.2s ease;
+        }
+        
+        .bcu-form-group input:focus,
+        .bcu-form-group select:focus {
+          outline: none;
+          border-color: var(--bcu-primary);
+        }
+        
+        .bcu-button {
+          background: var(--bcu-primary);
+          color: var(--bcu-white);
+          border: none;
+          padding: 0.75rem 1.5rem;
+          border-radius: 8px;
+          font-size: 1rem;
+          font-weight: 600;
+          cursor: pointer;
+          transition: background 0.2s ease;
+        }
+        
+        .bcu-button:hover {
+          background: var(--bcu-primary-light);
+        }
+      `;
+    }
+    
+    css += `
+      .bcu-ai-insights {
+        background: var(--bcu-white);
+        border-radius: 12px;
+        padding: 2rem;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        border-left: 4px solid var(--bcu-primary);
+      }
+      
+      .bcu-ai-insights h3 {
+        color: var(--bcu-primary);
+        margin-bottom: 1rem;
+      }
+      
+      .bcu-ai-insights p {
+        color: var(--bcu-gray-600);
+        line-height: 1.8;
+      }
+      
+      @media (max-width: 768px) {
+        .bcu-container {
+          padding: 15px;
+        }
+        
+        .bcu-header {
+          padding: 1.5rem;
+        }
+        
+        .bcu-header h1 {
+          font-size: 2rem;
+        }
+        
+        .bcu-nav-list {
+          flex-direction: column;
+          gap: 1rem;
+        }
+        
+        .bcu-card-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    `;
+    
+    return css;
+  };
+
+  const generateDefaultHTML = (hasNavigation: boolean, hasCards: boolean, hasForms: boolean) => {
+    let html = '';
+    
+    if (hasNavigation) {
+      html += `
+        <nav class="bcu-navigation">
+          <ul class="bcu-nav-list">
+            <li class="bcu-nav-item"><a href="#dashboard">Dashboard</a></li>
+            <li class="bcu-nav-item"><a href="#accounts">Accounts</a></li>
+            <li class="bcu-nav-item"><a href="#transactions">Transactions</a></li>
+            <li class="bcu-nav-item"><a href="#payments">Payments</a></li>
+            <li class="bcu-nav-item"><a href="#settings">Settings</a></li>
+          </ul>
+        </nav>
+      `;
+    }
+    
+    if (hasCards) {
+      html += `
+        <div class="bcu-card-grid">
+          <div class="bcu-card">
+            <h3>Account Balance</h3>
+            <p style="font-size: 2rem; font-weight: bold; color: var(--bcu-primary);">$12,450.67</p>
+            <p style="color: var(--bcu-gray-600);">Available Balance</p>
+          </div>
+          <div class="bcu-card">
+            <h3>Recent Transactions</h3>
+            <p style="color: var(--bcu-gray-600);">5 transactions this week</p>
+            <p style="color: var(--bcu-success); font-weight: 600;">+$250.00</p>
+          </div>
+          <div class="bcu-card">
+            <h3>Quick Actions</h3>
+            <p style="color: var(--bcu-gray-600);">Transfer • Pay • Deposit</p>
+          </div>
+        </div>
+      `;
+    }
+    
+    if (hasForms) {
+      html += `
+        <div class="bcu-form">
+          <h3>Quick Transfer</h3>
+          <form>
+            <div class="bcu-form-group">
+              <label for="to-account">To Account</label>
+              <select id="to-account">
+                <option>Select Account</option>
+                <option>Checking Account</option>
+                <option>Savings Account</option>
+              </select>
+            </div>
+            <div class="bcu-form-group">
+              <label for="amount">Amount</label>
+              <input type="number" id="amount" placeholder="Enter amount" min="0" step="0.01">
+            </div>
+            <button type="submit" class="bcu-button">Send Transfer</button>
+          </form>
+        </div>
+      `;
+    }
+    
+    return html;
   };
 
   const downloadDesign = () => {

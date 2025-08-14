@@ -46,6 +46,10 @@ const WireframeEditor: React.FC = () => {
   const [showTextInput, setShowTextInput] = useState(false);
   const [textPosition, setTextPosition] = useState({ x: 0, y: 0 });
   const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [isResizing, setIsResizing] = useState(false);
+  const [resizeHandle, setResizeHandle] = useState<string | null>(null);
 
   const drawGrid = useCallback((ctx: CanvasRenderingContext2D) => {
     ctx.strokeStyle = '#E5E7EB';
@@ -95,6 +99,9 @@ const WireframeEditor: React.FC = () => {
           if (element.selected) {
             ctx.fillStyle = 'rgba(30, 58, 138, 0.1)';
             ctx.fillRect(element.x, element.y, element.width, element.height);
+            
+            // Draw resize handles
+            drawResizeHandles(ctx, element);
           }
         }
         break;
@@ -113,6 +120,9 @@ const WireframeEditor: React.FC = () => {
           if (element.selected) {
             ctx.fillStyle = 'rgba(30, 58, 138, 0.1)';
             ctx.fill();
+            
+            // Draw resize handles
+            drawResizeHandles(ctx, element);
           }
         }
         break;
@@ -146,6 +156,35 @@ const WireframeEditor: React.FC = () => {
         break;
     }
   }, []);
+
+  const drawResizeHandles = (ctx: CanvasRenderingContext2D, element: WireframeElement) => {
+    if (!element.width || !element.height) return;
+    
+    const handleSize = 8;
+    ctx.fillStyle = '#1E3A8A';
+    ctx.strokeStyle = '#FFFFFF';
+    ctx.lineWidth = 2;
+    
+    // Draw corner handles
+    const right = element.x + element.width;
+    const bottom = element.y + element.height;
+    
+    // Southeast handle
+    ctx.fillRect(right - handleSize/2, bottom - handleSize/2, handleSize, handleSize);
+    ctx.strokeRect(right - handleSize/2, bottom - handleSize/2, handleSize, handleSize);
+    
+    // Southwest handle
+    ctx.fillRect(element.x - handleSize/2, bottom - handleSize/2, handleSize, handleSize);
+    ctx.strokeRect(element.x - handleSize/2, bottom - handleSize/2, handleSize, handleSize);
+    
+    // Northeast handle
+    ctx.fillRect(right - handleSize/2, element.y - handleSize/2, handleSize, handleSize);
+    ctx.strokeRect(right - handleSize/2, element.y - handleSize/2, handleSize, handleSize);
+    
+    // Northwest handle
+    ctx.fillRect(element.x - handleSize/2, element.y - handleSize/2, handleSize, handleSize);
+    ctx.strokeRect(element.x - handleSize/2, element.y - handleSize/2, handleSize, handleSize);
+  };
 
   const drawCanvas = useCallback(() => {
     const canvas = canvasRef.current;
@@ -204,6 +243,21 @@ const WireframeEditor: React.FC = () => {
           ...el,
           selected: el.id === clickedElement.id
         })));
+        
+        // Check if clicking on resize handle
+        const handle = getResizeHandle(pos.x, pos.y, clickedElement);
+        if (handle) {
+          setIsResizing(true);
+          setResizeHandle(handle);
+          setDragOffset({ x: pos.x - clickedElement.x, y: pos.y - clickedElement.y });
+        } else {
+          // Start dragging
+          setIsDragging(true);
+          setDragOffset({ 
+            x: pos.x - clickedElement.x, 
+            y: pos.y - clickedElement.y 
+          });
+        }
       } else {
         setSelectedElement(null);
         setElements(prev => prev.map(el => ({ ...el, selected: false })));
@@ -228,10 +282,57 @@ const WireframeEditor: React.FC = () => {
   };
 
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!isDrawing || currentTool !== 'pen') return;
-
     const pos = getMousePos(e);
-    setCurrentPath(prev => [...prev, pos]);
+    
+    if (isDrawing && currentTool === 'pen') {
+      setCurrentPath(prev => [...prev, pos]);
+    }
+    
+    if (isDragging && selectedElement) {
+      const newX = pos.x - dragOffset.x;
+      const newY = pos.y - dragOffset.y;
+      
+      setElements(prev => prev.map(el => 
+        el.id === selectedElement 
+          ? { ...el, x: newX, y: newY }
+          : el
+      ));
+    }
+    
+    if (isResizing && selectedElement && resizeHandle) {
+      const element = elements.find(el => el.id === selectedElement);
+      if (element && element.width && element.height) {
+        let newWidth = element.width;
+        let newHeight = element.height;
+        
+        switch (resizeHandle) {
+          case 'se':
+            newWidth = pos.x - element.x;
+            newHeight = pos.y - element.y;
+            break;
+          case 'sw':
+            newWidth = element.x + element.width - pos.x;
+            newHeight = pos.y - element.y;
+            break;
+          case 'ne':
+            newWidth = pos.x - element.x;
+            newHeight = element.y + element.height - pos.y;
+            break;
+          case 'nw':
+            newWidth = element.x + element.width - pos.x;
+            newHeight = element.y + element.height - pos.y;
+            break;
+        }
+        
+        if (newWidth > 20 && newHeight > 20) {
+          setElements(prev => prev.map(el => 
+            el.id === selectedElement 
+              ? { ...el, width: newWidth, height: newHeight }
+              : el
+          ));
+        }
+      }
+    }
   };
 
   const handleMouseUp = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -264,6 +365,11 @@ const WireframeEditor: React.FC = () => {
       setElements(prev => [...prev, newElement]);
       setCurrentPath([]);
     }
+    
+    // Stop dragging and resizing
+    setIsDragging(false);
+    setIsResizing(false);
+    setResizeHandle(null);
   };
 
   const addShape = (type: 'rectangle' | 'circle') => {
@@ -330,6 +436,22 @@ const WireframeEditor: React.FC = () => {
       default:
         return false;
     }
+  };
+
+  const getResizeHandle = (x: number, y: number, element: WireframeElement): string | null => {
+    if (!element.width || !element.height) return null;
+    
+    const handleSize = 8;
+    const right = element.x + element.width;
+    const bottom = element.y + element.height;
+    
+    // Check corners
+    if (x >= right - handleSize && y >= bottom - handleSize) return 'se';
+    if (x <= element.x + handleSize && y >= bottom - handleSize) return 'sw';
+    if (x >= right - handleSize && y <= element.y + handleSize) return 'ne';
+    if (x <= element.x + handleSize && y <= element.y + handleSize) return 'nw';
+    
+    return null;
   };
 
   const deleteSelected = () => {
