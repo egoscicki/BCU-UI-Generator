@@ -41,8 +41,8 @@ const DesignGenerator: React.FC = () => {
   const [generatedDesign, setGeneratedDesign] = useState<GeneratedDesign | null>(null);
   const [error, setError] = useState<string | null>(null);
   
-  // Get API key from environment variable
-  const API_KEY = process.env.REACT_APP_OPENAI_API_KEY || '';
+  // Demo mode - no API key needed
+  const isDemoMode = true;
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -68,34 +68,103 @@ const DesignGenerator: React.FC = () => {
       return;
     }
 
-    if (!API_KEY) {
-      setError('API key not available. Please contact administrator.');
-      return;
-    }
-
     setIsGenerating(true);
     setError(null);
 
     try {
-      const designPrompt = createDesignPrompt();
-      const aiResponse = await callChatGPTAPI(designPrompt, API_KEY);
-      
-      const newDesign: GeneratedDesign = {
-        id: Date.now().toString(),
-        title: formData.title,
-        description: formData.description,
-        designCode: generateDesignCode(aiResponse, formData),
-        timestamp: new Date(),
-        aiResponse: aiResponse
-      };
+      // Demo mode - simulate AI generation
+      if (isDemoMode) {
+        await simulateAIGeneration();
+        const aiResponse = generateDemoAIResponse();
+        
+        const newDesign: GeneratedDesign = {
+          id: Date.now().toString(),
+          title: formData.title,
+          description: formData.description,
+          designCode: generateDesignCode(aiResponse, formData),
+          timestamp: new Date(),
+          aiResponse: aiResponse
+        };
 
-      setGeneratedDesign(newDesign);
+        setGeneratedDesign(newDesign);
+      } else {
+        // Real API mode (when implemented)
+        const designPrompt = createDesignPrompt();
+        const aiResponse = await callChatGPTAPI(designPrompt, 'YOUR_API_KEY');
+        
+        const newDesign: GeneratedDesign = {
+          id: Date.now().toString(),
+          title: formData.title,
+          description: formData.description,
+          designCode: generateDesignCode(aiResponse, formData),
+          timestamp: new Date(),
+          aiResponse: aiResponse
+        };
+
+        setGeneratedDesign(newDesign);
+      }
     } catch (err: any) {
-      console.error('API Error:', err);
-      setError(err.message || 'Failed to generate design. Please check your API key and try again.');
+      console.error('Generation Error:', err);
+      setError(err.message || 'Failed to generate design. Please try again.');
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  const simulateAIGeneration = (): Promise<void> => {
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        resolve();
+      }, 3000); // Simulate 3 second AI processing
+    });
+  };
+
+  const generateDemoAIResponse = (): string => {
+    return `Based on your requirements for "${formData.title}", here are my professional design recommendations:
+
+1. LAYOUT STRUCTURE:
+   - Use a card-based grid layout for main content areas
+   - Implement a clean navigation header with BCU branding
+   - Include a sidebar for quick actions and account overview
+   - Use progressive disclosure for complex features
+
+2. COLOR SCHEME:
+   - Primary: BCU Blue (#1E3A8A) for headers and CTAs
+   - Secondary: Green (#10B981) for success states and confirmations
+   - Neutral grays for backgrounds and text
+   - Accent colors for alerts and highlights
+
+3. TYPOGRAPHY:
+   - Headers: 24px-32px, bold weight
+   - Body text: 16px, regular weight
+   - Captions: 14px, medium weight
+   - Use system fonts for optimal performance
+
+4. UI COMPONENTS:
+   - Interactive cards with hover effects
+   - Form inputs with clear validation states
+   - Progress indicators for multi-step processes
+   - Responsive tables for data display
+
+5. USER INTERACTION:
+   - Implement smooth transitions and micro-animations
+   - Use clear visual feedback for all actions
+   - Include breadcrumbs for navigation context
+   - Add loading states for async operations
+
+6. ACCESSIBILITY:
+   - Ensure proper color contrast ratios
+   - Include focus indicators for keyboard navigation
+   - Use semantic HTML elements
+   - Provide alt text for all images
+
+7. MOBILE RESPONSIVENESS:
+   - Stack elements vertically on small screens
+   - Use touch-friendly button sizes (44px minimum)
+   - Implement swipe gestures where appropriate
+   - Optimize for thumb navigation
+
+This design approach will create a professional, trustworthy banking interface that aligns with BCU's brand standards while ensuring excellent usability across all devices.`;
   };
 
   const createDesignPrompt = (): string => {
@@ -707,8 +776,20 @@ Focus on creating a design that conveys trust, security, and professionalism whi
               <h3>Ready to Generate Your Design</h3>
               <p className="bcu-text-gray">
                 Fill out the form above and click "Generate Design" to create your high-fidelity banking interface.
-                Our AI is ready and will analyze your requirements to produce a professional design with HTML code.
+                This demo mode shows how AI-powered design generation works - no API key required!
               </p>
+              {isDemoMode && (
+                <div style={{ 
+                  backgroundColor: 'var(--bcu-secondary)', 
+                  color: 'white', 
+                  padding: 'var(--bcu-spacing-3)', 
+                  borderRadius: 'var(--bcu-radius-md)',
+                  marginTop: 'var(--bcu-spacing-4)',
+                  fontSize: 'var(--bcu-font-size-sm)'
+                }}>
+                  🎯 <strong>Demo Mode Active</strong> - Experience AI-powered design generation without setup
+                </div>
+              )}
             </div>
           </div>
         )}
